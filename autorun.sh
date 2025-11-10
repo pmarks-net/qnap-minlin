@@ -81,26 +81,31 @@ make_resolv_conf() {
 case "$reason" in
   PREINIT)
     ip link set dev $interface up
+    sleep 1
     ;;
+
   BOUND|RENEW|REBIND|REBOOT)
-    ip -4 route flush dev $interface
     if [ -n "$new_ip_address" ]; then
-      ip -4 addr add ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} \
+      ip -4 addr replace ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} \
         ${new_broadcast_address:+broadcast $new_broadcast_address} \
         dev $interface
     fi
-    if [ -n "$old_ip_address" ] && [ "$old_ip_address" != "$new_ip_address" ]; then
-      ip -4 addr del $old_ip_address dev $interface
-    fi
+
     for r in $new_routers; do
-      ip -4 route add default via $r dev $interface && break
+      ip -4 route replace default via $r dev $interface
+      break
     done
+
     make_resolv_conf
-    /sbin/hal_app --se_buzzer enc_id=0,mode=0  # beep
+    if [ "$reason" = "BOUND" ]; then
+      /sbin/hal_app --se_buzzer enc_id=0,mode=0  # beep
+    fi
     ;;
+
   EXPIRE|FAIL|RELEASE|STOP)
     ip -4 addr flush dev $interface
     ip -4 route flush dev $interface
+    ip -4 neigh flush dev $interface
     ;;
 esac
 exit 0
@@ -134,7 +139,8 @@ for sig in SIGTERM SIGKILL; do
   sleep 5
 done
 mount -o remount,ro /mnt/HDA_ROOT
-busybox ifplugd -s -t1 -u1 -d1 -i eth0 -r /tmp/ifplugd.sh
+ln -s busybox /bin/ifplugd
+ifplugd -s -t1 -u1 -d1 -i eth0 -r /tmp/ifplugd.sh
 # for faster reboot:
 echo -e '#!/bin/sh\ntouch /var/qfunc/qpkg.shutdown.finish' >/sbin/qpkg_cli
 rm /tmp/minlin.sh
