@@ -10,3 +10,23 @@ That alone is sufficient for offsite backup, but I noticed that QNAP's OS is con
 The second part, which I'm calling minlin, wakes up after 10 minutes and kills most of the processes on the NAS.  It also provides a standalone config for ifplugd and dhclient, allowing the NAS to remain connected to the network without depending on QNAP's disk-thrashing nonsense.
 
 To use QNAP's default environment, just reboot the NAS, SSH in, and `rm /tmp/minlin.sh` within 10 minutes.
+
+### Recovery Tip: accessing the raw disk
+
+Here's how I accessed a disk formatted by the TS-131P, from Gentoo Linux:
+
+```
+USE=lvm   emerge mdadm lvm2
+mdadm --assemble --scan
+vgchange -ay --nolocking
+lsblk
+mount -o ro /dev/vg288/lv1 /mnt/backup-ext
+```
+
+Cleanup (assumes there are no other LVM or MD volumes):
+
+```
+umount /mnt/backup-ext
+vgchange -an
+mdadm --stop /dev/md*
+```
